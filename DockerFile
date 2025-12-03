@@ -1,0 +1,29 @@
+# Lightweight, modern Python base image
+FROM python:3.11-slim
+
+# Prevent Python from writing .pyc files and buffer stdout/stderr
+ENV PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Copy only requirements first to leverage Docker layer caching
+COPY requirements.txt ./
+
+# Install dependencies in one layer and avoid cache to keep image small
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . /app
+
+# Create a non-root user for better security and set ownership
+RUN useradd -m appuser \
+	&& chown -R appuser /app
+USER appuser
+
+# Expose the port the app listens on
+EXPOSE 5000
+
+# Use gunicorn for a production-ready WSGI server
+# It will import `app` (the Flask application) from `app.py`.
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000", "--workers", "1"]
